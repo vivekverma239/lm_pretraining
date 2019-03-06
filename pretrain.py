@@ -11,6 +11,7 @@ from tensorflow.keras import layers
 from data_utils import load_and_process_data, batchify, get_tokenizer, iterate
 from config import FW_CONFIG
 
+#python pretrain.py --train_file data/imdb/lm_train.txt --valid_file data/imdb/lm_val.txt
 
 def _sampled_lm_loss(pre_logits, labels,
                      vocab_size,
@@ -80,17 +81,29 @@ def language_model_graph(input_tokens, output_tokens, initial_state,
                          hidden_size, dropout, \
                          num_candidate_samples):
 
+    dropout = 0.5
     bptt = tf.shape(input_tokens)[1]
+    training_flag = tf.Variable(True)
     embedding_layer = layers.Embedding(max_vocab_size, embed_size)
+
     rnn_layer = layers.CuDNNLSTM(units=hidden_size, return_sequences=True,
                                  return_state=True)
 
     embedded_input = embedding_layer(input_tokens)
+    embedded_input = tf.layers.dropout(
+                                    embedded_input ,
+                                    rate=dropout,
+                                    training=training_flag,
+                                )
     rnn_outputs = rnn_layer(embedded_input, initial_state=initial_state)
 
     rnn_output, final_state_c, final_state_h = rnn_outputs
-
     final_state = (final_state_c, final_state_h)
+    rnn_output = tf.layers.dropout(
+                                    rnn_output ,
+                                    rate=dropout,
+                                    training=training_flag,
+                                )
 
     loss = _sampled_lm_loss(rnn_output, output_tokens,
                          max_vocab_size,
@@ -104,7 +117,7 @@ def language_model_graph(input_tokens, output_tokens, initial_state,
     weights["embedding"] = embedding_layer.weights
     weights["lstm"] = rnn_layer.weights
 
-    return train_op, loss, final_state, weights
+    return train_op, training_flag, loss, final_state, weights
 
 def _run_epoch(X, y, session, loss,
                 batch_size,
@@ -116,6 +129,7 @@ def _run_epoch(X, y, session, loss,
                 train_op,
                 final_state_c,
                 final_state_h,
+                training_flag,
                 seq_length=45,
                 train=False,
                 print_progress=True):
@@ -140,7 +154,8 @@ def _run_epoch(X, y, session, loss,
         feed_dict = {input_placeholder: item[0],
                      target_placeholder: item[1],
                      initial_state_c: c,
-                     initial_state_h: h}
+                     initial_state_h: h,
+                     training_flag:train}
         if train:
             ops = [train_op, loss, final_state_c, final_state_h]
             _, loss_, c, h = session.run(ops, feed_dict=feed_dict)
@@ -189,7 +204,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                                     name='input_state_h')
 
     # Create the Graph
-    train_op, loss, rnn_states, weights = language_model_graph(inputs, targets,
+    train_op, training_flag, loss, rnn_states, weights = language_model_graph(inputs, targets,
                                                      (initial_state_c, initial_state_h),
                                                      vocab_freqs=word_freq,
                                                       **config)
@@ -209,7 +224,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                         "final_state_h": final_state_h,
                         "seq_length": seq_length,
                         "batch_size": batch_size,
-                        "hidden_size":hidden_size}
+                        "hidden_size":hidden_size,
+                        "training_flag": training_flag}
 
     valid_losses = []
     for epoch in range(epochs):

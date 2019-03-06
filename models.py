@@ -12,7 +12,7 @@ def lookup_layer(item_to_lookup, vocab_file, num_oov_buckets=1):
     return vocab.lookup(item_to_lookup)
 
 
-def PretrainedLSTM(save_path, input_layer=None):
+def PretrainedLSTM(save_path, input_layer=None, return_sequences=False):
     """
 
         :params:
@@ -36,15 +36,17 @@ def PretrainedLSTM(save_path, input_layer=None):
     embed_size = config["embed_size"]
     hidden_size = config["hidden_size"]
 
-    input_layer = layers.Input(shape=(None,), dtype=tf.string)
+    if input_layer ==None:
+        input_layer = layers.Input(shape=(None,), dtype="string")
 
-    input_layer_idx = layers.Lambda(lambda x: lookup_layer(x, vocab_file))(input_layer)
+    lookup_vocab = layers.Lambda(lambda x: lookup_layer(x, vocab_file))
+    input_layer_idx = lookup_vocab(input_layer)
 
     embeded_input = layers.Embedding(max_vocab_size, embed_size,
-                                     weights=weights["embedding"])(input_layer)
+                                     weights=weights["embedding"])(input_layer_idx)
 
     rnn_output = layers.CuDNNLSTM(units=hidden_size,
-                                  return_sequences=True,
+                                  return_sequences=return_sequences,
                                   weights=weights["lstm"])(embeded_input)
 
     model = Model(inputs=[input_layer], outputs=[rnn_output])
