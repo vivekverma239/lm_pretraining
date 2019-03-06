@@ -81,7 +81,6 @@ def language_model_graph(input_tokens, output_tokens, initial_state,
                          hidden_size, dropout, \
                          num_candidate_samples):
 
-    dropout = 0.5
     bptt = tf.shape(input_tokens)[1]
     training_flag = tf.Variable(True)
     embedding_layer = layers.Embedding(max_vocab_size, embed_size)
