@@ -1,7 +1,8 @@
 # Config File for Basic Language Model
 FW_CONFIG = {"max_vocab_size": 50000,
-             "embed_size": 500,
+             "embed_size": 300,
              "hidden_size": 500,
+             "num_layers": 3,
              "dropout": 0.3,
              "batch_size": 64,
              "epochs": 50,

@@ -75,7 +75,8 @@ def _sampled_lm_loss(pre_logits, labels,
 
 
 
-def language_model_graph(input_tokens, output_tokens, initial_state,
+def language_model_graph(input_tokens, output_tokens,
+                         initial_state, num_layers,
                          max_vocab_size, vocab_freqs,
                          batch_size, embed_size,\
                          hidden_size, dropout, \
@@ -84,9 +85,12 @@ def language_model_graph(input_tokens, output_tokens, initial_state,
     bptt = tf.shape(input_tokens)[1]
     training_flag = tf.Variable(True)
     embedding_layer = layers.Embedding(max_vocab_size, embed_size)
+    rnn_layers = []
 
-    rnn_layer = layers.CuDNNLSTM(units=hidden_size, return_sequences=True,
-                                 return_state=True)
+    for i in range(num_layers):
+        rnn_layers.append(layers.CuDNNLSTM(units=hidden_size,
+                                     return_sequences=True,
+                                     return_state=True))
 
     embedded_input = embedding_layer(input_tokens)
     embedded_input = tf.layers.dropout(
@@ -94,9 +98,23 @@ def language_model_graph(input_tokens, output_tokens, initial_state,
                                     rate=dropout,
                                     training=training_flag,
                                 )
-    rnn_outputs = rnn_layer(embedded_input, initial_state=initial_state)
 
-    rnn_output, final_state_c, final_state_h = rnn_outputs
+    states = []
+    rnn_input = embedded_input
+    input_state_cs =  initial_state[0]
+    input_state_hs = initial_state[1]
+    final_state_cs = []
+    final_state_hs = []
+    for i in range(num_layers):
+        state_c, state_h = input_state_cs[i], input_state_hs[i]
+        rnn_outputs = rnn_layers[i](rnn_input, initial_state=(state_c, state_h))
+        rnn_output, final_state_c, final_state_h = rnn_outputs
+        final_state_cs.append(final_state_c)
+        final_state_hs.append(final_state_h)
+
+    final_state_c = tf.stack(final_state_cs, 0)
+    final_state_h = tf.stack(final_state_hs, 0)
+
     final_state = (final_state_c, final_state_h)
     rnn_output = tf.layers.dropout(
                                     rnn_output ,
@@ -114,11 +132,12 @@ def language_model_graph(input_tokens, output_tokens, initial_state,
     # Extract Weights
     weights = {}
     weights["embedding"] = embedding_layer.weights
-    weights["lstm"] = rnn_layer.weights
+    weights["lstm"] = [rnn_layer.weights for rnn_layer in rnn_layers]
 
     return train_op, training_flag, loss, final_state, weights
 
 def _run_epoch(X, y, session, loss,
+                num_layers,
                 batch_size,
                 hidden_size,
                 input_placeholder,
@@ -145,8 +164,8 @@ def _run_epoch(X, y, session, loss,
 
     batch_size = X.shape[0]
     # Intial LSTM State
-    c = np.zeros((batch_size, hidden_size), dtype=np.float32)
-    h = np.zeros((batch_size, hidden_size), dtype=np.float32)
+    c = np.zeros((num_layers, batch_size, hidden_size), dtype=np.float32)
+    h = np.zeros((num_layers, batch_size, hidden_size), dtype=np.float32)
     # Iterate over data
     for i in tqdm_range:
         item = next(data_iterator)
@@ -175,6 +194,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     tokenizer = get_tokenizer(tokenizer) if tokenizer else None
     batch_size = FW_CONFIG["batch_size"]
     hidden_size = FW_CONFIG["hidden_size"]
+    num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
     # Load data and Batchify
@@ -197,9 +217,9 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     # Define Placeholder and Initial States
     inputs  = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='input')
     targets = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='target')
-    initial_state_c  = tf.placeholder(dtype=tf.float32, shape=(batch_size, hidden_size),\
+    initial_state_c  = tf.placeholder(dtype=tf.float32, shape=(num_layers, batch_size, hidden_size),\
                                     name='input_state_c')
-    initial_state_h = tf.placeholder(dtype=tf.float32, shape=(batch_size, hidden_size),\
+    initial_state_h = tf.placeholder(dtype=tf.float32, shape=(num_layers, batch_size, hidden_size),\
                                     name='input_state_h')
 
     # Create the Graph
@@ -213,7 +233,9 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     sess.run(tf.global_variables_initializer())
 
     # Define run epoch function params (passed as kwargs)
-    run_epoch_params = {"session": sess, "loss": loss,
+    run_epoch_params = {"session": sess,
+                        "loss": loss,
+                        "num_layers": num_layers,
                         "input_placeholder": inputs,
                         "target_placeholder": targets,
                         "initial_state_c": initial_state_c,

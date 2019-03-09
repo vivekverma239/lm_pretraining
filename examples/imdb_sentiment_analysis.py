@@ -6,11 +6,13 @@ import tensorflow as tf
 
 from tensorflow.keras.preprocessing.text import text_to_word_sequence
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import Callback
+from tensorflow.keras import optimizers
 from tensorflow.keras import backend as K
 from models import PretrainedLSTM
+from data_utils import get_tokenizer
 
 # python -m data.imdb --save_path data/imdb --imdb_path data/imdb/aclImdb/
 TEST_POS_DIR = 'test/pos'
@@ -55,6 +57,8 @@ def process_data_for_classification(imdb_path, val_sample=5000 , tokenizer=None,
 
     if not tokenizer:
         tokenizer = text_to_word_sequence
+    else:
+        tokenizer = get_tokenizer(get_tokenizer)
     x_train = list(map(tokenizer, x_train))
     x_val = list(map(tokenizer, x_val))
     x_test = list(map(tokenizer, x_test))
@@ -68,13 +72,17 @@ def process_data_for_classification(imdb_path, val_sample=5000 , tokenizer=None,
 
 
 def train_classifier(imdb_path, pretrained_model_path,  tokenizer=None):
+    maxlen = 300
 
-    x_train, y_train , x_val , y_val, x_train, y_train = process_data_for_classification(imdb_path, tokenizer=tokenizer)
+    x_train, y_train , x_val , y_val, x_train, y_train = process_data_for_classification(imdb_path, tokenizer=tokenizer, maxlen=maxlen)
 
     # Define Model
-    input_ = Input(shape=(500,), dtype=tf.string)
+    input_ = Input(shape=(maxlen,), dtype=tf.string)
     pretrained_model = PretrainedLSTM(pretrained_model_path, input_)
+    # for layer in pretrained_model.layers[:-1]:
+    #     layer.trainable = False
     encoder_output = pretrained_model.outputs[0]
+    encoder_output = Dropout(0.2)(encoder_output)
     final_output = Dense(1)(encoder_output)
 
     model = Model(inputs=[input_], outputs=[final_output])
