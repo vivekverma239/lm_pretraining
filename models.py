@@ -52,7 +52,7 @@ def lookup_layer(item_to_lookup, vocab_file, num_oov_buckets=1):
 #     model = Model(inputs=[input_layer], outputs=[rnn_output])
 #     return model
 
-def PretrainedLSTM(save_path,num_layers=1, input_layer=None, return_sequences=False):
+def PretrainedLSTM(save_path, input_layer=None, return_sequences=False):
     """
 
         :params:
@@ -75,6 +75,7 @@ def PretrainedLSTM(save_path,num_layers=1, input_layer=None, return_sequences=Fa
     max_vocab_size = config["max_vocab_size"]
     embed_size = config["embed_size"]
     hidden_size = config["hidden_size"]
+    num_layers = config["num_layers"]
 
     if input_layer ==None:
         input_layer = layers.Input(shape=(None,), dtype="string")
@@ -84,7 +85,7 @@ def PretrainedLSTM(save_path,num_layers=1, input_layer=None, return_sequences=Fa
 
     embeded_input = layers.Embedding(max_vocab_size, embed_size,
                                      weights=weights["embedding"])(input_layer_idx)
-    embeded_input = layers.Dropout(0.5)(embeded_input)
+    # embeded_input = layers.Dropout(0.5)(embeded_input)
     rnn_input = embeded_input
     for i in range(num_layers):
         rnn_output = layers.CuDNNLSTM(units=hidden_size,

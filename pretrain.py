@@ -122,21 +122,28 @@ def language_model_graph(input_tokens, output_tokens,
                                     training=training_flag,
                                 )
 
-    loss = _sampled_lm_loss(rnn_output, output_tokens,
-                         max_vocab_size,
-                         vocab_freqs=vocab_freqs,
-                         num_candidate_samples=num_candidate_samples)
+    with tf.variable_scope("loss"):
+        sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
+                             max_vocab_size,
+                             vocab_freqs=vocab_freqs,
+                             num_candidate_samples=num_candidate_samples)
 
-    train_op = tf.train.AdamOptimizer().minimize(loss)
+    with tf.variable_scope("loss", reuse=True):
+        loss = _sampled_lm_loss(rnn_output, output_tokens,
+                             max_vocab_size,
+                             vocab_freqs=vocab_freqs,
+                             num_candidate_samples=-1)
+
+    train_op = tf.train.AdamOptimizer().minimize(sampled_loss)
 
     # Extract Weights
     weights = {}
     weights["embedding"] = embedding_layer.weights
     weights["lstm"] = [rnn_layer.weights for rnn_layer in rnn_layers]
 
-    return train_op, training_flag, loss, final_state, weights
+    return train_op, training_flag, sampled_loss, loss,  final_state, weights
 
-def _run_epoch(X, y, session, loss,
+def _run_epoch(X, y, session, sampled_loss, loss,
                 num_layers,
                 batch_size,
                 hidden_size,
@@ -175,7 +182,7 @@ def _run_epoch(X, y, session, loss,
                      initial_state_h: h,
                      training_flag:train}
         if train:
-            ops = [train_op, loss, final_state_c, final_state_h]
+            ops = [train_op, sampled_loss, final_state_c, final_state_h]
             _, loss_, c, h = session.run(ops, feed_dict=feed_dict)
         else:
             ops = [loss, final_state_c, final_state_h]
@@ -213,7 +220,6 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
         X_valid, y_valid = batchify(valid_data, batch_size)
 
     FW_CONFIG["max_vocab_size"] = min(len(word_index) + 1, FW_CONFIG["max_vocab_size"])
-    print(FW_CONFIG["max_vocab_size"] )
     # Define Placeholder and Initial States
     inputs  = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='input')
     targets = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='target')
@@ -223,7 +229,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                                     name='input_state_h')
 
     # Create the Graph
-    train_op, training_flag, loss, rnn_states, weights = language_model_graph(inputs, targets,
+    train_op, training_flag, sampled_loss, loss, rnn_states, weights = language_model_graph(inputs, targets,
                                                      (initial_state_c, initial_state_h),
                                                      vocab_freqs=word_freq,
                                                       **config)
@@ -234,6 +240,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
 
     # Define run epoch function params (passed as kwargs)
     run_epoch_params = {"session": sess,
+                        "sampled_loss": sampled_loss,
                         "loss": loss,
                         "num_layers": num_layers,
                         "input_placeholder": inputs,
@@ -279,7 +286,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     json.dump(FW_CONFIG, open(os.path.join(save_folder, "config.json"), "w"))
 
     # Arranging tokens in alist, this will go in vocab file
-    vocab = [""] + [i[0] for i in sorted(word_index.items(), key=lambda x: x[1])]
+    vocab = [" "] + [i[0] for i in sorted(word_index.items(), key=lambda x: x[1])][:FW_CONFIG["max_vocab_size"]+1]
     open(os.path.join(save_folder, "vocab.txt"), "w").write("\n".join(vocab))
 
     open(os.path.join(save_folder, "word_freqs.txt"), "w").write("\n".join(word_index))
