@@ -2,6 +2,9 @@ import os
 import fire
 from tqdm import tqdm
 import random
+import pickle
+from data_utils import get_tokenizer
+
 # python -m data.imdb --save_path data/imdb --imdb_path data/imdb/aclImdb/
 TEST_POS_DIR = 'test/pos'
 TEST_NEG_DIR = 'test/neg'
@@ -13,7 +16,7 @@ LM_TRAIN_FILE = 'lm_train.txt'
 LM_VAL_FILE = 'lm_val.txt'
 
 
-def process_data_for_language_model(save_path, imdb_path, val_sample=5000):
+def process_data_for_language_model(save_path, imdb_path, val_sample=5000, tokenizer=None):
     """
         Read the IMDB folder files and create language model training and
         validation file
@@ -23,6 +26,8 @@ def process_data_for_language_model(save_path, imdb_path, val_sample=5000):
             - imdb_path: Root directory of imdb dataset
             - val_sample: Number of files to select as validation set
     """
+    tokenizer = get_tokenizer(tokenizer)
+
     pos = [open(os.path.join(imdb_path, TRAIN_POS_DIR, i)).read() for i in\
                             tqdm(os.listdir(os.path.join(imdb_path, TRAIN_POS_DIR)))]
     neg = [open(os.path.join(imdb_path, TRAIN_NEG_DIR, i)).read() for i in \
@@ -33,6 +38,14 @@ def process_data_for_language_model(save_path, imdb_path, val_sample=5000):
                             tqdm(os.listdir(os.path.join(imdb_path, TEST_NEG_DIR)))]
     unsup = [open(os.path.join(imdb_path, TRAIN_UNSUP_DIR, i)).read() for i in \
                             tqdm(os.listdir(os.path.join(imdb_path, TRAIN_UNSUP_DIR)))]
+
+    process = lambda x: [' '.join(tokenizer(i)) for i in tqdm(x)]
+    pos = process(pos)
+    neg = process(neg)
+    test_pos = process(test_pos)
+    test_neg = process(test_neg)
+    unsup = process(unsup)
+
 
     text = pos + neg + unsup + test_neg + test_pos
 

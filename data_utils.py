@@ -47,7 +47,7 @@ def load_and_process_data(train_file, valid_file, test_file=None,\
     valid = open(valid_file).read().split('\n')
 
     # Tokenization
-    filters = '' if custom_tokenizer_function else '!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n'
+    filters = '' 
     tokenizer = Tokenizer(num_words=max_vocab_size,filters=filters,\
                             custom_tokenizer_function=custom_tokenizer_function)
     tokenizer.fit_on_texts(list(train) + list(valid))

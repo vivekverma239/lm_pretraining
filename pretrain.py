@@ -80,7 +80,8 @@ def language_model_graph(input_tokens, output_tokens,
                          max_vocab_size, vocab_freqs,
                          batch_size, embed_size,\
                          hidden_size, dropout, \
-                         num_candidate_samples):
+                         num_candidate_samples,
+                         maxlen, clip):
 
     bptt = tf.shape(input_tokens)[1]
     training_flag = tf.Variable(True)
@@ -134,7 +135,10 @@ def language_model_graph(input_tokens, output_tokens,
                              vocab_freqs=vocab_freqs,
                              num_candidate_samples=-1)
 
-    train_op = tf.train.AdamOptimizer().minimize(sampled_loss)
+    t_vars = tf.trainable_variables()
+    grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
+                                                    clip)
+    train_op = tf.train.AdamOptimizer().apply_gradients(grads)
 
     # Extract Weights
     weights = {}
@@ -208,7 +212,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     all_data = load_and_process_data(train_file, valid_file,
                                        test_file,
                                        max_vocab_size=config["max_vocab_size"],
-                                       custom_tokenizer_function=None)
+                                       custom_tokenizer_function=tokenizer)
     if test_file:
         word_freq, word_index, train_data, valid_data, test_data = all_data
         X_train, y_train = batchify(train_data, batch_size)
