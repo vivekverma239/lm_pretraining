@@ -138,7 +138,7 @@ def language_model_graph(input_tokens, output_tokens,
     t_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                     clip)
-    train_op = tf.train.AdamOptimizer().apply_gradients(grads)
+    train_op = tf.train.AdamOptimizer().apply_gradients(zip(grads, t_vars))
 
     # Extract Weights
     weights = {}
