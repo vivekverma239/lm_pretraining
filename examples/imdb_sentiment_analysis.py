@@ -81,14 +81,17 @@ def train_classifier(imdb_path, pretrained_model_path,  tokenizer=None):
     y_val = y_test
     # Define Model
     input_ = Input(shape=(maxlen,), dtype=tf.string)
-    pretrained_model = PretrainedLSTM(pretrained_model_path, input_, return_sequences=True)
-    for layer in pretrained_model.layers:
-        layer.trainable = False
+    pretrained_model = PretrainedLSTM(pretrained_model_path, input_, return_sequences=False)
+    # for layer in pretrained_model.layers[:-1]:
+    #     layer.trainable = False
     encoder_output = pretrained_model.outputs[0]
-    encoder_output = Dropout(0.5)(encoder_output)
-    encoder_output = CuDNNLSTM(100)(encoder_output)
-    encoder_output = Dropout(0.5)(encoder_output)
-    final_output = Dense(1)(encoder_output)
+    # encoder_output = Dropout(0.5)(encoder_output)
+    # encoder_output = CuDNNLSTM(100)(encoder_output)
+    encoder_output = Dense(300, activation='relu')(encoder_output)
+    encoder_output = Dropout(0.1)(encoder_output)
+    encoder_output = Dense(100, activation='relu')(encoder_output)
+    encoder_output = Dropout(0.1)(encoder_output)
+    final_output = Dense(1, activation="sigmoid")(encoder_output)
 
     model = Model(inputs=[input_], outputs=[final_output])
     model.compile("adam", loss="binary_crossentropy" , metrics=['acc'])

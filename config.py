@@ -6,7 +6,7 @@ FW_CONFIG = {"max_vocab_size": 50000,
              "dropout": 0.3,
              "batch_size": 64,
              "epochs": 6,
-             "seq_length": 40,
+             "seq_length": 70,
              "num_candidate_samples":2048,
              "clip":0.25,
              "maxlen":300}
