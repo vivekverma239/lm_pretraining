@@ -128,12 +128,12 @@ def language_model_graph(input_tokens, output_tokens,
     final_state_h = tf.stack(final_state_hs, 0)
 
     final_state = (final_state_c, final_state_h)
-    rnn_output = tf.layers.dropout(
-                                    rnn_output ,
-                                    rate=dropout,
-                                    training=training_flag,
-                                    noise_shape=[batch_size, 1, embed_size]
-                                )
+    # rnn_output = tf.layers.dropout(
+    #                                 rnn_output ,
+    #                                 rate=dropout,
+    #                                 training=training_flag,
+    #                                 noise_shape=[batch_size, 1, embed_size]
+    #                             )
 
     weight = embedding_layer.weights[0]
     weight = tf.transpose(weight, [1, 0])
