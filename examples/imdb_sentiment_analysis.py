@@ -88,9 +88,9 @@ def train_classifier(imdb_path, pretrained_model_path,  tokenizer=None):
     # encoder_output = Dropout(0.5)(encoder_output)
     # encoder_output = CuDNNLSTM(100)(encoder_output)
     encoder_output = Dense(300, activation='relu')(encoder_output)
-    encoder_output = Dropout(0.1)(encoder_output)
+    encoder_output = Dropout(0.3)(encoder_output)
     encoder_output = Dense(100, activation='relu')(encoder_output)
-    encoder_output = Dropout(0.1)(encoder_output)
+    encoder_output = Dropout(0.3)(encoder_output)
     final_output = Dense(1, activation="sigmoid")(encoder_output)
 
     model = Model(inputs=[input_], outputs=[final_output])

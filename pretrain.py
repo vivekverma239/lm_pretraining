@@ -16,7 +16,8 @@ from config import FW_CONFIG
 def _sampled_lm_loss(pre_logits, labels,
                      vocab_size,
                      vocab_freqs=None,
-                     num_candidate_samples=-1):
+                     num_candidate_samples=-1,
+                     weight=None):
     """
         Sampled Softmax loss to speedup training.
         Importance sampling is performed based on vocab_freqs
@@ -34,8 +35,11 @@ def _sampled_lm_loss(pre_logits, labels,
     """
     # Get the weight and biases
     pre_logits_hidden_size = pre_logits.get_shape()[-1]
-    lin_w = tf.get_variable(name="lin_w", shape=[pre_logits_hidden_size, vocab_size],\
-                                dtype=tf.float32)
+    if weight is None:
+        lin_w = tf.get_variable(name="lin_w", shape=[pre_logits_hidden_size, vocab_size],\
+                                    dtype=tf.float32)
+    else:
+        lin_w = weight
     lin_b = tf.get_variable(name="lin_b", shape=[vocab_size],\
                                 dtype=tf.float32)
     # Reshape Inputs and Lables
@@ -110,6 +114,13 @@ def language_model_graph(input_tokens, output_tokens,
         state_c, state_h = input_state_cs[i], input_state_hs[i]
         rnn_outputs = rnn_layers[i](rnn_input, initial_state=(state_c, state_h))
         rnn_output, final_state_c, final_state_h = rnn_outputs
+        rnn_output = tf.layers.dropout(
+                                        rnn_output ,
+                                        rate=dropout,
+                                        training=training_flag,
+                                        noise_shape=[batch_size, 1, embed_size]
+                                    )
+
         final_state_cs.append(final_state_c)
         final_state_hs.append(final_state_h)
 
@@ -121,19 +132,24 @@ def language_model_graph(input_tokens, output_tokens,
                                     rnn_output ,
                                     rate=dropout,
                                     training=training_flag,
+                                    noise_shape=[batch_size, 1, embed_size]
                                 )
 
+    weight = embedding_layer.weights[0]
+    weight = tf.transpose(weight, [1, 0])
     with tf.variable_scope("loss"):
         sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
                              max_vocab_size,
                              vocab_freqs=vocab_freqs,
-                             num_candidate_samples=num_candidate_samples)
+                             num_candidate_samples=num_candidate_samples,
+                             weight=weight)
 
     with tf.variable_scope("loss", reuse=True):
         loss = _sampled_lm_loss(rnn_output, output_tokens,
                              max_vocab_size,
                              vocab_freqs=vocab_freqs,
-                             num_candidate_samples=-1)
+                             num_candidate_samples=-1,
+                             weight=weight)
 
     t_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
