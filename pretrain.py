@@ -89,6 +89,7 @@ def language_model_graph(input_tokens, output_tokens,
 
     bptt = tf.shape(input_tokens)[1]
     training_flag = tf.Variable(True)
+    learning_rate = tf.Variable(20.0)
     embedding_layer = layers.Embedding(max_vocab_size, embed_size)
     rnn_layers = []
 
@@ -118,7 +119,7 @@ def language_model_graph(input_tokens, output_tokens,
                                         rnn_output ,
                                         rate=dropout,
                                         training=training_flag,
-                                        noise_shape=[batch_size, 1, embed_size]
+                                        noise_shape=[batch_size, 1, hidden_size]
                                     )
 
         final_state_cs.append(final_state_c)
@@ -137,6 +138,7 @@ def language_model_graph(input_tokens, output_tokens,
 
     weight = embedding_layer.weights[0]
     weight = tf.transpose(weight, [1, 0])
+    # weight = None
     with tf.variable_scope("loss"):
         sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
                              max_vocab_size,
@@ -151,17 +153,21 @@ def language_model_graph(input_tokens, output_tokens,
                              num_candidate_samples=-1,
                              weight=weight)
 
+    # sampled_loss = loss
     t_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                     clip)
-    train_op = tf.train.AdamOptimizer().apply_gradients(zip(grads, t_vars))
+    # train_op = tf.train.AdamOptimizer(learning_rate, beta1=0).apply_gradients(zip(grads, t_vars))
+    train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+
 
     # Extract Weights
     weights = {}
     weights["embedding"] = embedding_layer.weights
     weights["lstm"] = [rnn_layer.weights for rnn_layer in rnn_layers]
 
-    return train_op, training_flag, sampled_loss, loss,  final_state, weights
+    return train_op, training_flag, sampled_loss, loss,  final_state, weights,\
+                learning_rate
 
 def _run_epoch(X, y, session, sampled_loss, loss,
                 num_layers,
@@ -171,6 +177,8 @@ def _run_epoch(X, y, session, sampled_loss, loss,
                 target_placeholder,
                 initial_state_c,
                 initial_state_h,
+                learning_rate_var,
+                learning_rate,
                 train_op,
                 final_state_c,
                 final_state_h,
@@ -200,7 +208,8 @@ def _run_epoch(X, y, session, sampled_loss, loss,
                      target_placeholder: item[1],
                      initial_state_c: c,
                      initial_state_h: h,
-                     training_flag:train}
+                     training_flag:train,
+                     learning_rate_var:learning_rate}
         if train:
             ops = [train_op, sampled_loss, final_state_c, final_state_h]
             _, loss_, c, h = session.run(ops, feed_dict=feed_dict)
@@ -224,6 +233,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
+    learning_rate = 20
+    learning_rate_decay = 0.5
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
                                        test_file,
@@ -249,7 +260,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                                     name='input_state_h')
 
     # Create the Graph
-    train_op, training_flag, sampled_loss, loss, rnn_states, weights = language_model_graph(inputs, targets,
+    train_op, training_flag, sampled_loss,\
+    loss, rnn_states, weights, learning_rate_var = language_model_graph(inputs, targets,
                                                      (initial_state_c, initial_state_h),
                                                      vocab_freqs=word_freq,
                                                       **config)
@@ -267,6 +279,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                         "target_placeholder": targets,
                         "initial_state_c": initial_state_c,
                         "initial_state_h": initial_state_h,
+                        "learning_rate_var":learning_rate_var,
+                        "learning_rate":learning_rate,
                         "train_op": train_op,
                         "final_state_c": final_state_c,
                         "final_state_h": final_state_h,
@@ -275,8 +289,11 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                         "hidden_size":hidden_size,
                         "training_flag": training_flag}
 
-    valid_losses = []
+    valid_losses = [1000]
+    saver = tf.train.Saver()
     for epoch in range(epochs):
+        decay = (learning_rate_decay ** int((max(epoch - 20,0)/2)))
+        run_epoch_params['learning_rate'] = learning_rate * decay
         # Training Epoch
         train_loss = _run_epoch(X_train, y_train,
                                 train=True,
@@ -294,7 +311,10 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
         print("Epoch {0}, Train Loss {1:.2f}, Train Perplexity {2:.2f},\
                     Val Loss {3:.2f}, Val Perplexity {4:.2f}".format(*format_values))
 
-        valid_losses.append(valid_losses)
+        if valid_loss < min(valid_losses):
+            saver.save(sess, os.path.join(save_folder, "model.ckpt"))
+        valid_losses.append(valid_loss)
+
 
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)

@@ -45,9 +45,11 @@ def load_and_process_data(train_file, valid_file, test_file=None,\
     # Read and split the data
     train = open(train_file).read().split('\n')
     valid = open(valid_file).read().split('\n')
+    train = [i +" <pos>" for i in train ]
+    valid = [i +" <pos>" for i in valid ]
 
     # Tokenization
-    filters = '' 
+    filters = ''
     tokenizer = Tokenizer(num_words=max_vocab_size,filters=filters,\
                             custom_tokenizer_function=custom_tokenizer_function)
     tokenizer.fit_on_texts(list(train) + list(valid))
