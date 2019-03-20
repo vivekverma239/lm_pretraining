@@ -233,8 +233,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 0.001
-    learning_rate_decay = 0.9
+    learning_rate = 20
+    learning_rate_decay = 0.1
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
                                        test_file,
@@ -313,7 +313,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     saver = tf.train.Saver()
 
     for epoch in range(epochs):
-        decay = (learning_rate_decay ** int((max(epoch - 1, 0)/2)))
+        decay = (learning_rate_decay ** int((max(epoch - 2, 0)/2)))
         run_epoch_params['learning_rate'] = learning_rate * decay
         # Training Epoch
         train_loss = _run_epoch(X_train, y_train,
