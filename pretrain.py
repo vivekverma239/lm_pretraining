@@ -278,7 +278,6 @@ def pretrain_encoder(train_file, valid_file,\
         :params:
             - train_file: Training File, File with sentences separated by newline
             - valid_file: Validation File, same format as above
-            - test_file: Test File, same format as above
             - save_folder: Folder to save output files and models
             - tokenizer: Tokenizer to use for tokenizing sentences into tokens
             - **kwargs: other params:
@@ -290,6 +289,7 @@ def pretrain_encoder(train_file, valid_file,\
         :outputs:
             None
     """
+    config = FW_CONFIG
     tokenizer = get_tokenizer(tokenizer) if tokenizer else None
     batch_size = FW_CONFIG["batch_size"]
     hidden_size = FW_CONFIG["hidden_size"]
@@ -302,15 +302,10 @@ def pretrain_encoder(train_file, valid_file,\
     all_data = load_and_process_data(train_file, valid_file,
                                        max_vocab_size=config["max_vocab_size"],
                                        custom_tokenizer_function=tokenizer)
-    if test_file:
-        word_freq, word_index, train_data, valid_data, test_data = all_data
-        X_train, y_train = batchify(train_data, batch_size)
-        X_valid, y_valid = batchify(valid_data, batch_size)
-        X_test, y_test = batchify(test_data, batch_size)
-    else:
-        word_freq, word_index, train_data, valid_data = all_data
-        X_train, y_train = batchify(train_data, batch_size)
-        X_valid, y_valid = batchify(valid_data, batch_size)
+
+    word_freq, word_index, train_data, valid_data = all_data
+    X_train, y_train = batchify(train_data, batch_size)
+    X_valid, y_valid = batchify(valid_data, batch_size)
 
     # Save the Vocab and frequency files
     if not os.path.exists(save_folder):
