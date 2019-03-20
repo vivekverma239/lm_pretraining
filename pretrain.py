@@ -82,11 +82,44 @@ def _sampled_lm_loss(pre_logits, labels,
 def language_model_graph(input_tokens, output_tokens,
                          initial_state, num_layers,
                          max_vocab_size, vocab_freqs,
-                         batch_size, embed_size,\
-                         hidden_size, dropout, \
+                         batch_size, embed_size,
+                         hidden_size, dropout,
                          num_candidate_samples,
                          maxlen, clip):
+    """
+        This creates language model tensorflow graph. It takes placeholder
+        for input tokens, output_tokens (target), initial state for LSTM layers.
+        Lanugage model graph has Embedding Layer followed by LSTM layers. Loss
+        is calculated using sampled softmax layer of tensorflow.
 
+        :params:
+            - input_tokens: Placeholder for input tokens  [shape:(batch_size, None)]
+            - output_tokens: Placeholder for output tokens (used as target)
+                                [shape:(batch_size, None)]
+            - initial_state: Initial states placeholder for feeding state in LSTM
+                                Layers [shape:(num_layers, batch_size, hidden_size)]
+            - num_layers: Number of LSTM Layers
+            - max_vocab_size: Maximum Vocabulary size
+            - vocab_freqs: Frequency of words
+            - batch_size: Batch Size (should not be none)
+            - embed_size: Embedding Dimensions
+            - hidden_size: Hidden size of LSTM layers
+            - dropout: Dropout to keep between Layers, same dropout is applied after
+                        Embedding as well as between and after LSTM Layers
+            - num_candidate_samples: Candidate Samples to consider for Sampled softmax
+                            -1 to calculate complete softmax
+            - maxlen: Sequence length of examples (bptt)
+            - clip: clip gradients by `clip`
+
+        :returns:
+            - train_op: Training Op Tensorflow
+            - training_flag: Var for training flag
+            - sampled_loss: Sampled Loss Variable
+            - loss: Complete Loss Variable
+            - final_state: Output State of LSTMs
+            - weights: Dictionay containing weights of Embedding and LSTM layers
+            - learning_rate: Learning Rate Variable
+    """
     bptt = tf.shape(input_tokens)[1]
     training_flag = tf.Variable(True)
     learning_rate = tf.Variable(20.0)
@@ -157,8 +190,8 @@ def language_model_graph(input_tokens, output_tokens,
     t_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                     clip)
-    train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-    # train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+    # train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+    train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
@@ -186,7 +219,19 @@ def _run_epoch(X, y, session, sampled_loss, loss,
                 seq_length=45,
                 train=False,
                 print_progress=True):
+    """
+        Runs a single epoch of training or validation
 
+        :params:
+            - X: Input
+            - y: Target
+            - train: Training Flag (Dropouts are turned off by this)
+            - print_progress: Print the progress (tqdm progress bar)
+            - All other params are self expanatory or already described
+
+        :outputs:
+            - mean loss of all batches
+    """
     data_iterator = iterate((X, y), seq_length=seq_length)
     computed_loss = []
 
@@ -226,14 +271,27 @@ def _run_epoch(X, y, session, sampled_loss, loss,
 
 def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
                      save_folder='saved_model/base', tokenizer=None):
+    """
+        Module for running the training and validation subroutines.
 
+        :params:
+            - train_file: Training File, File with sentences separated by newline
+            - valid_file: Validation File, same format as above
+            - test_file: Test File, same format as above
+            - config: Configuration file
+            - save_folder: Folder to save output files and models
+            - tokenizer: Tokenizer to use for tokenizing sentences into tokens
+
+        :outputs:
+            None
+    """
     tokenizer = get_tokenizer(tokenizer) if tokenizer else None
     batch_size = FW_CONFIG["batch_size"]
     hidden_size = FW_CONFIG["hidden_size"]
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 0.001
+    learning_rate = 0.01
     learning_rate_decay = 0.1
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
@@ -312,7 +370,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     saver = tf.train.Saver()
     # saver.restore(sess, os.path.join(save_folder, "model.ckpt"))
     for epoch in range(epochs):
-        decay = (learning_rate_decay ** int((max(epoch - 2, 0)/2)))
+        decay = (learning_rate_decay ** int((max(epoch - 5, 0)/2)))
+
         run_epoch_params['learning_rate'] = learning_rate * decay
         # Training Epoch
         train_loss = _run_epoch(X_train, y_train,
