@@ -157,8 +157,8 @@ def language_model_graph(input_tokens, output_tokens,
     t_vars = tf.trainable_variables()
     grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                     clip)
-    # train_op = tf.train.AdamOptimizer(learning_rate, beta1=0).apply_gradients(zip(grads, t_vars))
-    train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+    train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+    # train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
@@ -233,7 +233,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 20
+    learning_rate = 0.001
     learning_rate_decay = 0.1
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
@@ -289,7 +289,6 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     sess.run(tf.global_variables_initializer())
 
 
-
     # Define run epoch function params (passed as kwargs)
     run_epoch_params = {"session": sess,
                         "sampled_loss": sampled_loss,
@@ -311,7 +310,7 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
 
     valid_losses = [1000]
     saver = tf.train.Saver()
-
+    # saver.restore(sess, os.path.join(save_folder, "model.ckpt"))
     for epoch in range(epochs):
         decay = (learning_rate_decay ** int((max(epoch - 2, 0)/2)))
         run_epoch_params['learning_rate'] = learning_rate * decay
@@ -334,9 +333,11 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
 
         if valid_loss < min(valid_losses):
             saver.save(sess, os.path.join(save_folder, "model.ckpt"))
-            numpy_weights = weights
-            for layer in numpy_weights:
+            numpy_weights = {}
+            weights_ = weights
+            for layer in weights:
                 numpy_weights[layer] = sess.run(weights[layer])
+            weights = weights_
             pickle.dump(numpy_weights, open(os.path.join(save_folder, "weights.pkl"), "wb"))
 
         valid_losses.append(valid_loss)
