@@ -78,7 +78,7 @@ def train_classifier(imdb_path, pretrained_model_path,  tokenizer=None):
     x_train, y_train , x_val , y_val, x_test, y_test = process_data_for_classification(imdb_path, tokenizer=tokenizer, maxlen=maxlen)
     x_train = np.concatenate([x_train, x_val], axis=0)
     y_train = np.concatenate([y_train, y_val], axis=0)
-    x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=24900)
+    # x_train, _, y_train, _ = train_test_split(x_train, y_train, test_size=24900)
     x_val = x_test
     y_val = y_test
     # Define Model

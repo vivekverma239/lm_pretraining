@@ -233,8 +233,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 20
-    learning_rate_decay = 0.5
+    learning_rate = 0.001
+    learning_rate_decay = 0.9
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
                                        test_file,
@@ -250,7 +250,25 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
         X_train, y_train = batchify(train_data, batch_size)
         X_valid, y_valid = batchify(valid_data, batch_size)
 
+    # Save the Vocab and frequency files
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+
+    # Saving config and word_index file
+    json.dump(word_index, open(os.path.join(save_folder, "word_index.json"), "w"))
+    json.dump(word_freq, open(os.path.join(save_folder, "word_freq.json"), "w"))
+
+    json.dump(FW_CONFIG, open(os.path.join(save_folder, "config.json"), "w"))
+
+    # Arranging tokens in alist, this will go in vocab file
+    vocab = [" "] + [i[0] for i in sorted(word_index.items(), key=lambda x: x[1])][:FW_CONFIG["max_vocab_size"]+1]
+    open(os.path.join(save_folder, "vocab.txt"), "w").write("\n".join(vocab))
+    open(os.path.join(save_folder, "word_freqs.txt"), "w").write("\n".join(word_index))
+
+    # Check max_vocab_size
     FW_CONFIG["max_vocab_size"] = min(len(word_index) + 1, FW_CONFIG["max_vocab_size"])
+
+
     # Define Placeholder and Initial States
     inputs  = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='input')
     targets = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='target')
@@ -269,6 +287,8 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
     final_state_c, final_state_h = rnn_states
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
+
+
 
     # Define run epoch function params (passed as kwargs)
     run_epoch_params = {"session": sess,
@@ -291,8 +311,9 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
 
     valid_losses = [1000]
     saver = tf.train.Saver()
+
     for epoch in range(epochs):
-        decay = (learning_rate_decay ** int((max(epoch - 20,0)/2)))
+        decay = (learning_rate_decay ** int((max(epoch - 1, 0)/2)))
         run_epoch_params['learning_rate'] = learning_rate * decay
         # Training Epoch
         train_loss = _run_epoch(X_train, y_train,
@@ -313,27 +334,14 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
 
         if valid_loss < min(valid_losses):
             saver.save(sess, os.path.join(save_folder, "model.ckpt"))
+            numpy_weights = weights
+            for layer in numpy_weights:
+                numpy_weights[layer] = sess.run(weights[layer])
+            pickle.dump(numpy_weights, open(os.path.join(save_folder, "weights.pkl"), "wb"))
+
         valid_losses.append(valid_loss)
 
 
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-
-    # Saving config and word_index file
-    json.dump(word_index, open(os.path.join(save_folder, "word_index.json"), "w"))
-    json.dump(word_freq, open(os.path.join(save_folder, "word_freq.json"), "w"))
-
-    json.dump(FW_CONFIG, open(os.path.join(save_folder, "config.json"), "w"))
-
-    # Arranging tokens in alist, this will go in vocab file
-    vocab = [" "] + [i[0] for i in sorted(word_index.items(), key=lambda x: x[1])][:FW_CONFIG["max_vocab_size"]+1]
-    open(os.path.join(save_folder, "vocab.txt"), "w").write("\n".join(vocab))
-
-    open(os.path.join(save_folder, "word_freqs.txt"), "w").write("\n".join(word_index))
-    numpy_weights = weights
-    for layer in numpy_weights:
-        numpy_weights[layer] = sess.run(weights[layer])
-    pickle.dump(numpy_weights, open(os.path.join(save_folder, "weights.pkl"), "wb"))
 
 if __name__ == '__main__':
     fire.Fire(pretrain_encoder)
