@@ -269,8 +269,9 @@ def _run_epoch(X, y, session, sampled_loss, loss,
     return np.mean(computed_loss)
 
 
-def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
-                     save_folder='saved_model/base', tokenizer=None):
+def pretrain_encoder(train_file, valid_file,\
+                     save_folder='saved_model/base', tokenizer=None,
+                     **kwargs):
     """
         Module for running the training and validation subroutines.
 
@@ -278,10 +279,14 @@ def pretrain_encoder(train_file, valid_file, test_file=None, config=FW_CONFIG,\
             - train_file: Training File, File with sentences separated by newline
             - valid_file: Validation File, same format as above
             - test_file: Test File, same format as above
-            - config: Configuration file
             - save_folder: Folder to save output files and models
             - tokenizer: Tokenizer to use for tokenizing sentences into tokens
-
+            - **kwargs: other params:
+                        * batch_size
+                        * hidden_size
+                        * num_layers
+                        * epochs
+                        * seq_length
         :outputs:
             None
     """

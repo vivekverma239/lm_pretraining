@@ -74,7 +74,7 @@ def process_data_for_classification(imdb_path, val_sample=5000 , tokenizer=None,
 
 
 def train_classifier(imdb_path, pretrained_model_path,  tokenizer=None):
-    maxlen = 600
+    maxlen = 400
     x_train, y_train , x_val , y_val, x_test, y_test = process_data_for_classification(imdb_path, tokenizer=tokenizer, maxlen=maxlen)
     x_train = np.concatenate([x_train, x_val], axis=0)
     y_train = np.concatenate([y_train, y_val], axis=0)
