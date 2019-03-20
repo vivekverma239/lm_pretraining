@@ -296,7 +296,7 @@ def pretrain_encoder(train_file, valid_file,\
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 0.01
+    learning_rate = 20
     learning_rate_decay = 0.1
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,

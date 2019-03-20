@@ -57,3 +57,6 @@ model.fit(x_train, y_train, epochs=10, callbacks=callbacks)
 ## Examples:
 - IMDB Movie Review Dataset
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1VHZvEExiwEiFlO6fa1gAasowPSv9kSlP)
+
+
+## TODOs:
