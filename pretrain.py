@@ -300,7 +300,6 @@ def pretrain_encoder(train_file, valid_file,\
     learning_rate_decay = 0.1
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
-                                       test_file,
                                        max_vocab_size=config["max_vocab_size"],
                                        custom_tokenizer_function=tokenizer)
     if test_file:
