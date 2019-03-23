@@ -186,12 +186,13 @@ def language_model_graph(input_tokens, output_tokens,
                              num_candidate_samples=-1,
                              weight=weight)
 
-    # sampled_loss = loss
-    t_vars = tf.trainable_variables()
-    grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
-                                                    clip)
-    # train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-    train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+    with tf.variable_scope("optimizer"):
+        # sampled_loss = loss
+        t_vars = tf.trainable_variables()
+        grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
+                                                        clip)
+        # train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
@@ -271,6 +272,7 @@ def _run_epoch(X, y, session, sampled_loss, loss,
 
 def pretrain_encoder(train_file, valid_file,\
                      save_folder='saved_model/base', tokenizer=None,
+                     restore=False,
                      **kwargs):
     """
         Module for running the training and validation subroutines.
@@ -279,6 +281,8 @@ def pretrain_encoder(train_file, valid_file,\
             - train_file: Training File, File with sentences separated by newline
             - valid_file: Validation File, same format as above
             - save_folder: Folder to save output files and models
+            - restore: Whether to restore from the save_folder (can be used
+                        to finetune on a smaller dataset)
             - tokenizer: Tokenizer to use for tokenizing sentences into tokens
             - **kwargs: other params:
                         * batch_size
@@ -296,12 +300,15 @@ def pretrain_encoder(train_file, valid_file,\
     num_layers = FW_CONFIG["num_layers"]
     epochs = FW_CONFIG.pop("epochs")
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 20
+    learning_rate = 1.0
     learning_rate_decay = 0.1
+    tokenizer_json_file = os.path.join(save_folder, "tokenizer.json")
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
                                        max_vocab_size=config["max_vocab_size"],
-                                       custom_tokenizer_function=tokenizer)
+                                       custom_tokenizer_function=tokenizer,
+                                       tokenizer_json_file=tokenizer_json_file,
+                                       restore_from=tokenizer_json_file if restore else None)
 
     word_freq, word_index, train_data, valid_data = all_data
     X_train, y_train = batchify(train_data, batch_size)
@@ -366,8 +373,11 @@ def pretrain_encoder(train_file, valid_file,\
                         "training_flag": training_flag}
 
     valid_losses = [1000]
-    saver = tf.train.Saver()
-    # saver.restore(sess, os.path.join(save_folder, "model.ckpt"))
+    vars = tf.trainable_variables()
+    vars = [i for i in vars if 'optimizer' not in i.name]
+    saver = tf.train.Saver(vars)
+    if restore:
+        saver.restore(sess, os.path.join(save_folder, "model.ckpt"))
     for epoch in range(epochs):
         decay = (learning_rate_decay ** int((max(epoch - 5, 0)/2)))
 

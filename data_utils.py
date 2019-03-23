@@ -1,7 +1,7 @@
 import itertools
 import os
 import random
-from text_processing import Tokenizer
+from text_processing import Tokenizer, tokenizer_from_json
 import numpy as np
 from nltk import word_tokenize
 import spacy
@@ -26,7 +26,9 @@ def iterate(data, seq_length, var=20):
 
 def load_and_process_data(train_file, valid_file, test_file=None,\
                           max_vocab_size=50000,
-                          custom_tokenizer_function=None):
+                          custom_tokenizer_function=None,
+                          tokenizer_json_file=None,
+                          restore_from=None):
     """
         Load and Process data for Language Modelling Task
 
@@ -49,11 +51,19 @@ def load_and_process_data(train_file, valid_file, test_file=None,\
     valid = [i +" <pos>" for i in valid ]
 
     # Tokenization
-    filters = ''
-    tokenizer = Tokenizer(num_words=max_vocab_size,filters=filters,\
-                            custom_tokenizer_function=custom_tokenizer_function)
-    tokenizer.fit_on_texts(list(train) + list(valid))
-
+    if restore_from:
+        with open(tokenizer_json_file, "r") as file_:
+            json = file_.read()
+            tokenizer = tokenizer_from_json(json)
+    else:
+        filters = ''
+        tokenizer = Tokenizer(num_words=max_vocab_size,filters=filters,\
+                                custom_tokenizer_function=custom_tokenizer_function)
+        tokenizer.fit_on_texts(list(train) + list(valid))
+    if tokenizer_json_file:
+        json = tokenizer.to_json()
+        with open(tokenizer_json_file, "w") as file_:
+            file_.write(json)
     # Calculate word frequency, sorting it so word_freq[i] is for word which has "i" inded
     word_freq = [(0,1000)]+ [(v,tokenizer.word_counts[k]) for k,v in tokenizer.word_index.items()]
     word_freq = [i[1] for i in sorted(word_freq, key=lambda x : x[0])][:max_vocab_size]
