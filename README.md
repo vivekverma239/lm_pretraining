@@ -58,5 +58,17 @@ model.fit(x_train, y_train, epochs=10, callbacks=callbacks)
 - IMDB Movie Review Dataset
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1VHZvEExiwEiFlO6fa1gAasowPSv9kSlP)
 
+**Improvement:**
+- Data Efficiency: The best improvement is seen in terms of data efficiency, with very few examples model performance increases significantly.
+For this example we use only IMDB data for pretraining. Including other sources will further improve the performance.
+- Final Performance: The final Performance of the model also improves, we achieved a final accuracy of 92.41% on test data. 
+
+<div style="margin:auto">
+<img src="assets/imdb-learning-curve.png" alt="IMDB Learning Curve" style="margin:auto; display: block" width="550"/>
+</div>
+
 
 ## TODOs:
+- Improvement in Language Model
+- Include Bidirectional LM Support
+- Package it in PIP Package
