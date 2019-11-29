@@ -317,6 +317,8 @@ def pretrain_encoder(train_file, valid_file,\
     hidden_size = kwargs.get("hidden_size") or FW_CONFIG["hidden_size"]
     num_layers = kwargs.get("num_layers") or FW_CONFIG["num_layers"]
     epochs = kwargs.get("epochs") or FW_CONFIG.pop("epochs")
+    if "epochs" in FW_CONFIG:
+        FW_CONFIG.pop("epochs")
     FW_CONFIG["num_candidate_samples"] = kwargs.get("num_candidate_samples") or FW_CONFIG["num_candidate_samples"]
     seq_length = FW_CONFIG.pop("seq_length")
     learning_rate = 1.0
