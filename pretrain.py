@@ -3,6 +3,7 @@ import json
 import fire
 import random
 import pickle
+import math
 from tqdm import tqdm
 import tensorflow as tf
 import numpy as np
@@ -203,7 +204,7 @@ def language_model_graph(input_tokens, output_tokens,
     return train_op, training_flag, sampled_loss, loss,  final_state, weights,\
                 learning_rate
 
-def _run_epoch(X, y, session, sampled_loss, loss,
+def _run_epoch(X, y, epoch, session, sampled_loss, loss,
                 num_layers,
                 batch_size,
                 hidden_size,
@@ -219,6 +220,7 @@ def _run_epoch(X, y, session, sampled_loss, loss,
                 training_flag,
                 seq_length=45,
                 train=False,
+                lr_cosine_decay_params=None,
                 print_progress=True):
     """
         Runs a single epoch of training or validation
@@ -235,7 +237,6 @@ def _run_epoch(X, y, session, sampled_loss, loss,
     """
     data_iterator = iterate((X, y), seq_length=seq_length)
     computed_loss = []
-
     # Create a tqdm iterator
     max_steps = int(X.shape[1]/seq_length)
     if print_progress:
@@ -249,6 +250,23 @@ def _run_epoch(X, y, session, sampled_loss, loss,
     h = np.zeros((num_layers, batch_size, hidden_size), dtype=np.float32)
     # Iterate over data
     for i in tqdm_range:
+        if lr_cosine_decay_params:
+            learning_rate = lr_cosine_decay_params["learning_rate"]
+            t_mul = lr_cosine_decay_params["t_mul"]
+            steps = (epoch*max_steps + i + 1)
+            cycles_completed = int(math.log(
+                                    steps * (t_mul - 1) /
+                                    lr_cosine_decay_params["first_decay_steps"] + 1
+                                    ) / math.log(t_mul)
+                                   )
+            cycle = lr_cosine_decay_params["first_decay_steps"] * \
+                    ( t_mul**cycles_completed + lr_cosine_decay_params["first_decay_steps"]  )
+            min_learning_rate = lr_cosine_decay_params["learning_rate"] * lr_cosine_decay_params["alpha"]
+            learning_rate = min_learning_rate + 0.5 * (learning_rate - min_learning_rate) * \
+                                math.cos( steps * math.pi / cycle )
+            # learning_rate = tf.train.cosine_decay_restarts(
+            #                 global_step=epoch*max_steps + i ,
+            #                 **lr_cosine_decay_params)
         item = next(data_iterator)
         feed_dict = {input_placeholder: item[0],
                      target_placeholder: item[1],
@@ -303,6 +321,12 @@ def pretrain_encoder(train_file, valid_file,\
     seq_length = FW_CONFIG.pop("seq_length")
     learning_rate = 1.0
     learning_rate_decay = 0.1
+    lr_cosine_decay_params = {
+            "learning_rate": learning_rate,
+            "first_decay_steps": 2000,
+            "t_mul": 2.0,
+            "alpha": 0.01
+    }
     tokenizer_json_file = os.path.join(save_folder, "tokenizer.json")
     # Load data and Batchify
     all_data = load_and_process_data(train_file, valid_file,
@@ -371,7 +395,8 @@ def pretrain_encoder(train_file, valid_file,\
                         "seq_length": seq_length,
                         "batch_size": batch_size,
                         "hidden_size":hidden_size,
-                        "training_flag": training_flag}
+                        "training_flag": training_flag,
+                        "lr_cosine_decay_params": lr_cosine_decay_params}
 
     valid_losses = [1000]
     vars = tf.trainable_variables()
@@ -386,12 +411,14 @@ def pretrain_encoder(train_file, valid_file,\
         # Training Epoch
         train_loss = _run_epoch(X_train, y_train,
                                 train=True,
+                                epoch=epoch,
                                 print_progress=True,
                                 **run_epoch_params)
         # Valid Epoch
         valid_loss = _run_epoch(X_valid, y_valid,
                                 train=False,
                                 print_progress=False,
+                                epoch=epoch,
                                 **run_epoch_params)
 
         format_values = [epoch, train_loss, np.exp(train_loss),\
