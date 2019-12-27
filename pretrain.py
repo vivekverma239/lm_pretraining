@@ -193,8 +193,8 @@ def language_model_graph(input_tokens, output_tokens,
         grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                         clip)
         # train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        # train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
+        train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        # train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
