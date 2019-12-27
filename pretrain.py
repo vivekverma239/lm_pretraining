@@ -193,7 +193,8 @@ def language_model_graph(input_tokens, output_tokens,
         grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                         clip)
         # train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        # train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
@@ -313,10 +314,13 @@ def pretrain_encoder(train_file, valid_file,\
     """
     config = FW_CONFIG
     tokenizer = get_tokenizer(tokenizer) if tokenizer else None
-    batch_size = FW_CONFIG["batch_size"]
-    hidden_size = FW_CONFIG["hidden_size"]
-    num_layers = FW_CONFIG["num_layers"]
-    epochs = FW_CONFIG.pop("epochs")
+    batch_size = kwargs.get("batch_size") or FW_CONFIG["batch_size"]
+    hidden_size = kwargs.get("hidden_size") or FW_CONFIG["hidden_size"]
+    num_layers = kwargs.get("num_layers") or FW_CONFIG["num_layers"]
+    epochs = kwargs.get("epochs") or FW_CONFIG.pop("epochs")
+    if "epochs" in FW_CONFIG:
+        FW_CONFIG.pop("epochs")
+    FW_CONFIG["num_candidate_samples"] = kwargs.get("num_candidate_samples") or FW_CONFIG["num_candidate_samples"]
     seq_length = FW_CONFIG.pop("seq_length")
     learning_rate = 1.0
     learning_rate_decay = 0.1
@@ -355,7 +359,7 @@ def pretrain_encoder(train_file, valid_file,\
 
     # Check max_vocab_size
     FW_CONFIG["max_vocab_size"] = min(len(word_index) + 1, FW_CONFIG["max_vocab_size"])
-
+    print("Vocabulary Size: {}".format(FW_CONFIG["max_vocab_size"]))
 
     # Define Placeholder and Initial States
     inputs  = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='input')
@@ -436,7 +440,6 @@ def pretrain_encoder(train_file, valid_file,\
             pickle.dump(numpy_weights, open(os.path.join(save_folder, "weights.pkl"), "wb"))
 
         valid_losses.append(valid_loss)
-
 
 
 if __name__ == '__main__':
