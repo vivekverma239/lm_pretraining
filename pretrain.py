@@ -250,20 +250,20 @@ def _run_epoch(X, y, epoch, session, sampled_loss, loss,
     h = np.zeros((num_layers, batch_size, hidden_size), dtype=np.float32)
     # Iterate over data
     for i in tqdm_range:
-        if lr_cosine_decay_params:
-            learning_rate = lr_cosine_decay_params["learning_rate"]
-            t_mul = lr_cosine_decay_params["t_mul"]
-            steps = (epoch*max_steps + i + 1)
-            cycles_completed = int(math.log(
-                                    steps * (t_mul - 1) /
-                                    lr_cosine_decay_params["first_decay_steps"] + 1
-                                    ) / math.log(t_mul)
-                                   )
-            cycle = lr_cosine_decay_params["first_decay_steps"] * \
-                    ( t_mul**cycles_completed + lr_cosine_decay_params["first_decay_steps"]  )
-            min_learning_rate = lr_cosine_decay_params["learning_rate"] * lr_cosine_decay_params["alpha"]
-            learning_rate = min_learning_rate + 0.5 * (learning_rate - min_learning_rate) * \
-                                math.cos( steps * math.pi / cycle )
+        # if lr_cosine_decay_params:
+        #     learning_rate = lr_cosine_decay_params["learning_rate"]
+        #     t_mul = lr_cosine_decay_params["t_mul"]
+        #     steps = (epoch*max_steps + i + 1)
+        #     cycles_completed = int(math.log(
+        #                             steps * (t_mul - 1) /
+        #                             lr_cosine_decay_params["first_decay_steps"] + 1
+        #                             ) / math.log(t_mul)
+        #                            )
+        #     cycle = lr_cosine_decay_params["first_decay_steps"] * \
+        #             ( t_mul**cycles_completed + lr_cosine_decay_params["first_decay_steps"]  )
+        #     min_learning_rate = lr_cosine_decay_params["learning_rate"] * lr_cosine_decay_params["alpha"]
+        #     learning_rate = min_learning_rate + 0.5 * (learning_rate - min_learning_rate) * \
+        #                         math.cos( steps * math.pi / cycle )
             # learning_rate = tf.train.cosine_decay_restarts(
             #                 global_step=epoch*max_steps + i ,
             #                 **lr_cosine_decay_params)
