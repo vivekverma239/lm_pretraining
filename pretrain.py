@@ -193,8 +193,8 @@ def language_model_graph(input_tokens, output_tokens,
         grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                         clip)
         # train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        # train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
+        # train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
@@ -274,7 +274,7 @@ def _run_epoch(X, y, epoch, session, sampled_loss, loss,
                      initial_state_c: c,
                      initial_state_h: h,
                      training_flag:train,
-                     learning_rate_var:learning_rate}
+                     learning_rate_var: learning_rate}
         if train:
             ops = [train_op, sampled_loss, final_state_c, final_state_h]
             _, loss_, c, h = session.run(ops, feed_dict=feed_dict)
@@ -322,7 +322,7 @@ def pretrain_encoder(train_file, valid_file,\
         FW_CONFIG.pop("epochs")
     FW_CONFIG["num_candidate_samples"] = kwargs.get("num_candidate_samples") or FW_CONFIG["num_candidate_samples"]
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = 1.0
+    learning_rate = .1
     learning_rate_decay = 0.1
     lr_cosine_decay_params = {
             "learning_rate": learning_rate,
