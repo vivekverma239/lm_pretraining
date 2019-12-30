@@ -85,6 +85,7 @@ def language_model_graph(input_tokens, output_tokens,
                          max_vocab_size, vocab_freqs,
                          batch_size, embed_size,
                          hidden_size, dropout,
+                         optimizer,
                          num_candidate_samples,
                          maxlen, clip):
     """
@@ -192,9 +193,12 @@ def language_model_graph(input_tokens, output_tokens,
         t_vars = tf.trainable_variables()
         grads, _ = tf.clip_by_global_norm(tf.gradients(sampled_loss*maxlen, t_vars),
                                                         clip)
-        train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        # train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
-        # train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
+        if optimizer == "adam":
+            train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        elif optimizer == "sgd":
+            train_op = tf.train.GradientDescentOptimizer(learning_rate).apply_gradients(zip(grads, t_vars))
+        else:
+            train_op = tf.compat.v1.train.MomentumOptimizer(learning_rate, momentum=0.9).apply_gradients(zip(grads, t_vars))
 
 
     # Extract Weights
@@ -322,7 +326,9 @@ def pretrain_encoder(train_file, valid_file,\
         FW_CONFIG.pop("epochs")
     FW_CONFIG["num_candidate_samples"] = kwargs.get("num_candidate_samples") or FW_CONFIG["num_candidate_samples"]
     seq_length = FW_CONFIG.pop("seq_length")
-    learning_rate = .001
+    learning_rate = kwargs.get("learning_rate", 0.001)
+    optimizer = kwargs.get("optimizer", "adam")
+
     learning_rate_decay = 0.1
     lr_cosine_decay_params = {
             "learning_rate": learning_rate,
@@ -374,6 +380,7 @@ def pretrain_encoder(train_file, valid_file,\
     loss, rnn_states, weights, learning_rate_var = language_model_graph(inputs, targets,
                                                      (initial_state_c, initial_state_h),
                                                      vocab_freqs=word_freq,
+                                                     optimizer=optimizer,
                                                       **config)
 
     final_state_c, final_state_h = rnn_states
