@@ -328,6 +328,8 @@ def pretrain_encoder(train_file, valid_file,\
     seq_length = FW_CONFIG.pop("seq_length")
     learning_rate = kwargs.get("learning_rate", 0.001)
     optimizer = kwargs.get("optimizer", "adam")
+    print_progress = kwargs.get("print_progress", False)
+
 
     learning_rate_decay = 0.1
     lr_cosine_decay_params = {
@@ -422,7 +424,7 @@ def pretrain_encoder(train_file, valid_file,\
         train_loss = _run_epoch(X_train, y_train,
                                 train=True,
                                 epoch=epoch,
-                                print_progress=True,
+                                print_progress=print_progress,
                                 **run_epoch_params)
         # Valid Epoch
         valid_loss = _run_epoch(X_valid, y_valid,
