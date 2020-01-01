@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras import layers
 
+from adaptive_softmax import AdaptiveSoftmax
 from data_utils import load_and_process_data, batchify, get_tokenizer, iterate
 from config import FW_CONFIG
 
@@ -122,6 +123,7 @@ def language_model_graph(input_tokens, output_tokens,
             - weights: Dictionay containing weights of Embedding and LSTM layers
             - learning_rate: Learning Rate Variable
     """
+
     bptt = tf.shape(input_tokens)[1]
     training_flag = tf.Variable(True)
     learning_rate = tf.Variable(20.0)
@@ -174,20 +176,22 @@ def language_model_graph(input_tokens, output_tokens,
     weight = embedding_layer.weights[0]
     weight = tf.transpose(weight, [1, 0])
     # weight = None
-    with tf.variable_scope("loss"):
-        sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
-                             max_vocab_size,
-                             vocab_freqs=vocab_freqs,
-                             num_candidate_samples=num_candidate_samples,
-                             weight=weight)
+    # with tf.variable_scope("loss"):
+    #     sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
+    #                          max_vocab_size,
+    #                          vocab_freqs=vocab_freqs,
+    #                          num_candidate_samples=num_candidate_samples,
+    #                          weight=weight)
 
-    with tf.variable_scope("loss", reuse=True):
-        loss = _sampled_lm_loss(rnn_output, output_tokens,
-                             max_vocab_size,
-                             vocab_freqs=vocab_freqs,
-                             num_candidate_samples=-1,
-                             weight=weight)
+    # with tf.variable_scope("loss", reuse=True):
+    #     loss = _sampled_lm_loss(rnn_output, output_tokens,
+    #                          max_vocab_size,
+    #                          vocab_freqs=vocab_freqs,
+    #                          num_candidate_samples=-1,
+    #                          weight=weight)
 
+    softmax = AdaptiveSoftmax(hidden_size, cutoff=[2800, 20000, 76000])
+    loss = sampled_loss = softmax(rnn_output, output_tokens)
     with tf.variable_scope("optimizer"):
         # sampled_loss = loss
         t_vars = tf.trainable_variables()
