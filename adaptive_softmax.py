@@ -11,7 +11,7 @@ class AdaptiveSoftmax(object):
             project_dims = []
             tail_project_factor = project_factor
             for i in range(self.cluster_num):
-                dim = max(1, input_dim / tail_project_factor)
+                dim = int(max(1, input_dim / tail_project_factor))
                 project_dims.append(dim)
                 tail_project_factor *= project_factor
 
