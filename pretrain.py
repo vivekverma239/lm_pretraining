@@ -191,7 +191,7 @@ def language_model_graph(input_tokens, output_tokens,
     #                          weight=weight)
 
     softmax = AdaptiveSoftmax(hidden_size, cutoff=[2800, 20000, 76000])
-    loss = sampled_loss = softmax(rnn_output, output_tokens)
+    loss = sampled_loss = softmax.loss(rnn_output, output_tokens)
     with tf.variable_scope("optimizer"):
         # sampled_loss = loss
         t_vars = tf.trainable_variables()
