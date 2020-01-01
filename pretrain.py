@@ -374,8 +374,8 @@ def pretrain_encoder(train_file, valid_file,\
     print("Vocabulary Size: {}".format(FW_CONFIG["max_vocab_size"]))
 
     # Define Placeholder and Initial States
-    inputs  = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='input')
-    targets = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='target')
+    inputs  = tf.placeholder(dtype=tf.int32, shape=(batch_size,None), name='input')
+    targets = tf.placeholder(dtype=tf.int32, shape=(batch_size,None), name='target')
     initial_state_c  = tf.placeholder(dtype=tf.float32, shape=(num_layers, batch_size, hidden_size),\
                                     name='input_state_c')
     initial_state_h = tf.placeholder(dtype=tf.float32, shape=(num_layers, batch_size, hidden_size),\
