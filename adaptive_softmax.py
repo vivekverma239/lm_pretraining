@@ -46,7 +46,7 @@ class AdaptiveSoftmax(object):
             tail_labels = tf.boolean_mask(labels - self.cutoff[i], mask)
             tail_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tail_logits, labels=tail_labels)
             training_losses.append(tail_loss)
-            aligned_tail_loss = tf.SparseTensor(tf.squeeze(tf.where(mask)), tail_loss, [tf.size(labels, out_type=tf.int64)])
+            aligned_tail_loss = tf.SparseTensor(tf.squeeze(tf.where(mask)), tail_loss, [tf.size(labels, out_type=tf.int32)])
             loss = tf.sparse_tensor_to_dense(aligned_tail_loss) if i == 0 else \
                 loss + tf.sparse_tensor_to_dense(aligned_tail_loss)
 
