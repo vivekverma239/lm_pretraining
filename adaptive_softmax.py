@@ -33,10 +33,9 @@ class AdaptiveSoftmax(object):
         # Get tail masks and update head labels
         training_losses = []
         head_labels = labels
-        ones = tf.ones([tf.size(labels)], dtype=tf.int32)
+        ones = tf.ones_like(labels, dtype=tf.int32)
         for i in range(self.cluster_num):
             mask = tf.logical_and(tf.greater_equal(labels, self.cutoff[i]), tf.less(labels, self.cutoff[i + 1]))
-            
             # Update head labels
             head_labels = tf.where(mask, ones * (self.cutoff[0] + i), head_labels)
 
@@ -46,9 +45,11 @@ class AdaptiveSoftmax(object):
             tail_labels = tf.boolean_mask(labels - self.cutoff[i], mask)
             tail_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tail_logits, labels=tail_labels)
             training_losses.append(tail_loss)
-            aligned_tail_loss = tf.SparseTensor(tf.squeeze(tf.where(mask)), tail_loss, [tf.size(labels, out_type=tf.int32)])
-            loss = tf.sparse_tensor_to_dense(aligned_tail_loss) if i == 0 else \
-                loss + tf.sparse_tensor_to_dense(aligned_tail_loss)
+
+            aligned_tail_loss = tf.SparseTensor(tf.squeeze(tf.where(mask)), tail_loss, tf.shape(labels, out_type=tf.int64,))
+            print(aligned_tail_loss)
+            loss = tf.sparse.to_dense(aligned_tail_loss) if i == 0 else \
+                loss + tf.sparse.to_dense(aligned_tail_loss)
 
         # Compute head loss
         head_logits = tf.matmul(inputs, self.head_w) # (sample_num, head_size)
