@@ -181,7 +181,7 @@ def language_model_graph(input_tokens, output_tokens,
     elif type_ == "gcnn":
         rnn_output = _gcnn_block(rnn_input)
         final_state = (input_state_cs, input_state_hs)
-        rnn_output = layer.Dense(hidden_size, activation='relu')(rnn_output)
+        rnn_output = layers.Dense(hidden_size, activation='relu')(rnn_output)
     # rnn_output = tf.layers.dropout(
     #                                 rnn_output ,
     #                                 rate=dropout,
@@ -391,7 +391,7 @@ def pretrain_encoder(train_file, valid_file,\
 
     # Define Placeholder and Initial States
     inputs  = tf.placeholder(dtype=tf.int32, shape=(batch_size,None), name='input')
-    targets = tf.placeholder(dtype=tf.int32, shape=(batch_size,None), name='target')
+    targets = tf.placeholder(dtype=tf.int64, shape=(batch_size,None), name='target')
     initial_state_c  = tf.placeholder(dtype=tf.float32, shape=(num_layers, batch_size, hidden_size),\
                                     name='input_state_c')
     initial_state_h = tf.placeholder(dtype=tf.float32, shape=(num_layers, batch_size, hidden_size),\

@@ -29,9 +29,10 @@ class GatedCNN(object):
     def __call__(self, input):
         res_input, input = input, input 
 
-        for block in self.blocks: 
+        for idx, block in enumerate(self.blocks): 
             input = block(input)
-            input += res_input
+            if idx != 0:
+              input += res_input
             res_input = input 
         
         return res_input
