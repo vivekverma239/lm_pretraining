@@ -8,6 +8,7 @@ from tqdm import tqdm
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras import layers
+from gated_cnn import GatedCNN
 
 from adaptive_softmax import AdaptiveSoftmax
 from data_utils import load_and_process_data, batchify, get_tokenizer, iterate
@@ -80,6 +81,10 @@ def _sampled_lm_loss(pre_logits, labels,
     return lm_loss
 
 
+def _gcnn_block(input):
+    output = GatedCNN(input)
+    return output  
+
 
 def language_model_graph(input_tokens, output_tokens,
                          initial_state, num_layers,
@@ -88,7 +93,8 @@ def language_model_graph(input_tokens, output_tokens,
                          hidden_size, dropout,
                          optimizer,
                          num_candidate_samples,
-                         maxlen, clip):
+                         maxlen, clip, 
+                         type_="rnn"):
     """
         This creates language model tensorflow graph. It takes placeholder
         for input tokens, output_tokens (target), initial state for LSTM layers.
@@ -146,26 +152,32 @@ def language_model_graph(input_tokens, output_tokens,
     rnn_input = embedded_input
     input_state_cs =  initial_state[0]
     input_state_hs = initial_state[1]
-    final_state_cs = []
-    final_state_hs = []
-    for i in range(num_layers):
-        state_c, state_h = input_state_cs[i], input_state_hs[i]
-        rnn_outputs = rnn_layers[i](rnn_input, initial_state=(state_c, state_h))
-        rnn_output, final_state_c, final_state_h = rnn_outputs
-        rnn_output = tf.layers.dropout(
-                                        rnn_output ,
-                                        rate=dropout,
-                                        training=training_flag,
-                                        noise_shape=[batch_size, 1, hidden_size]
-                                    )
+    
+    if type_ = "rnn":
+        final_state_cs = []
+        final_state_hs = []
+        for i in range(num_layers):
+            state_c, state_h = input_state_cs[i], input_state_hs[i]
+            rnn_outputs = rnn_layers[i](rnn_input, initial_state=(state_c, state_h))
+            rnn_output, final_state_c, final_state_h = rnn_outputs
+            rnn_output = tf.layers.dropout(
+                                            rnn_output ,
+                                            rate=dropout,
+                                            training=training_flag,
+                                            noise_shape=[batch_size, 1, hidden_size]
+                                        )
 
-        final_state_cs.append(final_state_c)
-        final_state_hs.append(final_state_h)
+            final_state_cs.append(final_state_c)
+            final_state_hs.append(final_state_h)
 
-    final_state_c = tf.stack(final_state_cs, 0)
-    final_state_h = tf.stack(final_state_hs, 0)
+        final_state_c = tf.stack(final_state_cs, 0)
+        final_state_h = tf.stack(final_state_hs, 0)
 
-    final_state = (final_state_c, final_state_h)
+        final_state = (final_state_c, final_state_h)
+    elif type_ == "gcnn":
+        _gcnn_block(input_)
+        final_state = (input_state_cs, input_state_hs)
+
     # rnn_output = tf.layers.dropout(
     #                                 rnn_output ,
     #                                 rate=dropout,
@@ -192,6 +204,7 @@ def language_model_graph(input_tokens, output_tokens,
 
     softmax = AdaptiveSoftmax(hidden_size, cutoff=[2800, 20000, 76000])
     loss = sampled_loss = softmax.loss(rnn_output, output_tokens)
+
     with tf.variable_scope("optimizer"):
         # sampled_loss = loss
         t_vars = tf.trainable_variables()
@@ -333,7 +346,7 @@ def pretrain_encoder(train_file, valid_file,\
     learning_rate = kwargs.get("learning_rate", 0.001)
     optimizer = kwargs.get("optimizer", "adam")
     print_progress = kwargs.get("print_progress", False)
-
+    type_ = kwargs.get("type", "rnn")
 
     learning_rate_decay = 0.1
     lr_cosine_decay_params = {
@@ -387,6 +400,7 @@ def pretrain_encoder(train_file, valid_file,\
                                                      (initial_state_c, initial_state_h),
                                                      vocab_freqs=word_freq,
                                                      optimizer=optimizer,
+                                                     type_=type_,
                                                       **config)
 
     final_state_c, final_state_h = rnn_states

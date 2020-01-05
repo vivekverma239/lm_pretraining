@@ -55,7 +55,7 @@ class AdaptiveSoftmax(object):
         head_logits = tf.matmul(inputs, self.head_w) # (sample_num, head_size)
         head_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=head_logits, labels=head_labels) #(sample_num)
         training_losses.append(head_loss)
-        loss = tf.add(loss, head_loss, name=name)
+        loss = tf.reduce_mean(tf.add(loss, head_loss, name=name))
 
         return loss, training_losses
 
