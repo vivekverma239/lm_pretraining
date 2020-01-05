@@ -16,6 +16,10 @@ from config import FW_CONFIG
 
 #python pretrain.py --train_file data/imdb/lm_train.txt --valid_file data/imdb/lm_val.txt
 
+def get_trainbale_params():
+  return np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
+
+
 def _sampled_lm_loss(pre_logits, labels,
                      vocab_size,
                      vocab_freqs=None,
@@ -82,7 +86,7 @@ def _sampled_lm_loss(pre_logits, labels,
 
 
 def _gcnn_block(input):
-    output = GatedCNN(input)
+    output = GatedCNN()(input)
     return output  
 
 
@@ -153,7 +157,7 @@ def language_model_graph(input_tokens, output_tokens,
     input_state_cs =  initial_state[0]
     input_state_hs = initial_state[1]
     
-    if type_ = "rnn":
+    if type_ == "rnn":
         final_state_cs = []
         final_state_hs = []
         for i in range(num_layers):
@@ -175,9 +179,9 @@ def language_model_graph(input_tokens, output_tokens,
 
         final_state = (final_state_c, final_state_h)
     elif type_ == "gcnn":
-        _gcnn_block(input_)
+        rnn_output = _gcnn_block(rnn_input)
         final_state = (input_state_cs, input_state_hs)
-
+        hidden_size = 800
     # rnn_output = tf.layers.dropout(
     #                                 rnn_output ,
     #                                 rate=dropout,
@@ -188,22 +192,22 @@ def language_model_graph(input_tokens, output_tokens,
     weight = embedding_layer.weights[0]
     weight = tf.transpose(weight, [1, 0])
     # weight = None
-    # with tf.variable_scope("loss"):
-    #     sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
-    #                          max_vocab_size,
-    #                          vocab_freqs=vocab_freqs,
-    #                          num_candidate_samples=num_candidate_samples,
-    #                          weight=weight)
+    with tf.variable_scope("loss"):
+        sampled_loss = _sampled_lm_loss(rnn_output, output_tokens,
+                             max_vocab_size,
+                             vocab_freqs=vocab_freqs,
+                             num_candidate_samples=num_candidate_samples,
+                             weight=weight)
 
-    # with tf.variable_scope("loss", reuse=True):
-    #     loss = _sampled_lm_loss(rnn_output, output_tokens,
-    #                          max_vocab_size,
-    #                          vocab_freqs=vocab_freqs,
-    #                          num_candidate_samples=-1,
-    #                          weight=weight)
+    with tf.variable_scope("loss", reuse=True):
+        loss = _sampled_lm_loss(rnn_output, output_tokens,
+                             max_vocab_size,
+                             vocab_freqs=vocab_freqs,
+                             num_candidate_samples=-1,
+                             weight=weight)
 
-    softmax = AdaptiveSoftmax(hidden_size, cutoff=[2800, 20000, 76000])
-    loss, _ = sampled_loss, _ = softmax.loss(rnn_output, output_tokens)
+    # softmax = AdaptiveSoftmax(hidden_size, cutoff=[2800, 20000, 76000])
+    # loss, _ = sampled_loss, _ = softmax.loss(rnn_output, output_tokens)
     with tf.variable_scope("optimizer"):
         # sampled_loss = loss
         t_vars = tf.trainable_variables()
@@ -405,7 +409,7 @@ def pretrain_encoder(train_file, valid_file,\
     final_state_c, final_state_h = rnn_states
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-
+    print("total number of trainable params {}".format(get_trainbale_params()))
 
     # Define run epoch function params (passed as kwargs)
     run_epoch_params = {"session": sess,
