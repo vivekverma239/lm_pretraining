@@ -7,7 +7,7 @@ class GatedCNNBlock(object):
 
     def __init__(self, kernel_size, num_filters):
         self.conv = layers.Conv1D(num_filters, kernel_size, activation='relu') 
-        self.conv_gate = layers.Conv1D(output_dim, kernel_size, activation="sigmoid")
+        self.conv_gate = layers.Conv1D(num_filters, kernel_size, activation="sigmoid")
         self.pad_input = layers.ZeroPadding1D(padding=(kernel_size-1, 0))
 
     def __call__(self, inputs):
