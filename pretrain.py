@@ -181,7 +181,7 @@ def language_model_graph(input_tokens, output_tokens,
     elif type_ == "gcnn":
         rnn_output = _gcnn_block(rnn_input)
         final_state = (input_state_cs, input_state_hs)
-        hidden_size = 800
+        rnn_output = layer.Dense(hidden_size, activation='relu')(rnn_output)
     # rnn_output = tf.layers.dropout(
     #                                 rnn_output ,
     #                                 rate=dropout,
