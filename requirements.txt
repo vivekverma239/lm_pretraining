@@ -1,4 +1,4 @@
 spacy
 fire
 nltk
-tensorflow-gpu==1.12.0
+tensorflow-gpu==2.5.1
